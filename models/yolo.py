@@ -1,8 +1,4 @@
-"""YOLOv5-specific modules
-
-Usage:
-    $ python path/to/models/yolo.py --cfg yolov5s.yaml
-"""
+# YOLOv5 YOLO-specific modules
 
 import argparse
 import logging
@@ -219,9 +215,9 @@ class Model(nn.Module):
             self.model = self.model[:-1]  # remove
         return self
 
-    def autoshape(self):  # add AutoShape module
-        logger.info('Adding AutoShape... ')
-        m = AutoShape(self)  # wrap model
+    def autoshape(self):  # add autoShape module
+        logger.info('Adding autoShape... ')
+        m = autoShape(self)  # wrap model
         copy_attr(m, self, include=('yaml', 'nc', 'hyp', 'names', 'stride'), exclude=())  # copy attributes
         return m
 

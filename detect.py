@@ -12,9 +12,38 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path, save_one_box
 from utils.plots import colors, plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
+from  gtts import gTTS 
+import os
+
+videoCaptureObject = cv2.VideoCapture(0)
+result = True
+while(result):
+    ret,frame = videoCaptureObject.read()
+    time.sleep(5)
+    cv2.imwrite("NewPicture.jpg",frame)
+    result = False
+videoCaptureObject.release()
+cv2.destroyAllWindows()
 
 
-@torch.no_grad()
+def speech(result):
+	with open('obj.txt',mode ='w') as file:
+	 	file.write(result)
+	 	print(result)            
+
+	fh=open("obj.txt","r")
+	myText = fh.read().replace("\n"," ")
+
+	language = 'en'
+
+	output = gTTS(text=myText, lang=language,slow=False)
+
+	output.save("obj.mp3")
+	fh.close()
+	time.sleep(5)
+	os.system("start obj.mp3")
+
+
 def detect(opt):
     source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
@@ -69,8 +98,7 @@ def detect(opt):
         pred = model(img, augment=opt.augment)[0]
 
         # Apply NMS
-        pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, opt.classes, opt.agnostic_nms,
-                                   max_det=opt.max_det)
+        pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
         t2 = time_synchronized()
 
         # Apply Classifier
@@ -80,14 +108,15 @@ def detect(opt):
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
-                p, s, im0, frame = path[i], f'{i}: ', im0s[i].copy(), dataset.count
+                #p, s, im0, frame = path[i], f'{i}: ', im0s[i].copy(), dataset.count
+                p, s, im0, frame = path[i], '', im0s[i].copy(), dataset.count
             else:
                 p, s, im0, frame = path, '', im0s.copy(), getattr(dataset, 'frame', 0)
 
             p = Path(p)  # to Path
             save_path = str(save_dir / p.name)  # img.jpg
             txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
-            s += '%gx%g ' % img.shape[2:]  # print string
+            #s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             imc = im0.copy() if opt.save_crop else im0  # for opt.save_crop
             if len(det):
@@ -116,10 +145,11 @@ def detect(opt):
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
+            speech(s)
 
             # Stream results
             if view_img:
-                cv2.imshow(str(p), im0)
+                #cv2.imshow(str(p), im0)
                 cv2.waitKey(1)  # 1 millisecond
 
             # Save results (image with detections)
@@ -141,9 +171,12 @@ def detect(opt):
                         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                     vid_writer.write(im0)
 
-    if save_txt or save_img:
-        s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
-        print(f"Results saved to {save_dir}{s}")
+    #removing line to reduce delay
+    #if save_txt or save_img:
+        #s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
+        #print(f"Results saved to {save_dir}{s}")
+        #print(s)
+        
 
     print(f'Done. ({time.time() - t0:.3f}s)')
 
@@ -151,11 +184,10 @@ def detect(opt):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='data/images', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default='0', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
-    parser.add_argument('--max-det', type=int, default=1000, help='maximum number of detections per image')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
@@ -176,9 +208,10 @@ if __name__ == '__main__':
     print(opt)
     check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
 
-    if opt.update:  # update all models (to fix SourceChangeWarning)
-        for opt.weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:
-            detect(opt=opt)
-            strip_optimizer(opt.weights)
-    else:
-        detect(opt=opt)
+    with torch.no_grad():
+        if opt.update:  # update all models (to fix SourceChangeWarning)        	
+            for opt.weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:         
+                detect(opt=opt)
+                strip_optimizer(opt.weights)
+        else:
+        	detect(opt=opt)
